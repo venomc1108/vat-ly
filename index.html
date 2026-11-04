@@ -1,0 +1,879 @@
+<!DOCTYPE html>
+<html lang="vi">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Khảo Sát Hiện Tượng Rơi Tự Do - Thí Nghiệm & Phân Tích</title>
+  <script src="https://cdn.tailwindcss.com"></script>
+  <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css">
+  <style>
+    @import url('https://fonts.googleapis.com/css2?family=Orbitron:wght@500;700;900&family=Share+Tech+Mono&family=Inter:wght@400;600;700&display=swap');
+
+    body {
+      font-family: 'Inter', sans-serif;
+      user-select: none;
+      background-color: #030712;
+    }
+    
+    .font-scifi {
+      font-family: 'Orbitron', monospace;
+    }
+
+    .font-mono-tech {
+      font-family: 'Share Tech Mono', monospace;
+    }
+
+    /* Hiệu ứng quét Laser Mắt Thấu Thị */
+    @keyframes scanline {
+      0% { top: 0%; opacity: 0.8; }
+      50% { opacity: 1; }
+      100% { top: 100%; opacity: 0.8; }
+    }
+
+    .scanner-active .scan-bar {
+      position: absolute;
+      left: 0;
+      width: 100%;
+      height: 3px;
+      background: linear-gradient(90deg, transparent, #00f0ff, #38bdf8, transparent);
+      box-shadow: 0 0 15px #00f0ff, 0 0 30px #00f0ff;
+      animation: scanline 2.2s ease-in-out infinite alternate;
+      z-index: 30;
+      pointer-events: none;
+    }
+
+    /* Hiệu ứng lưới Grid Hologram */
+    .holo-grid {
+      background-image: 
+        linear-gradient(rgba(0, 240, 255, 0.08) 1px, transparent 1px),
+        linear-gradient(90deg, rgba(0, 240, 255, 0.08) 1px, transparent 1px);
+      background-size: 28px 28px;
+    }
+
+    /* 3 Nút tròn viền phát sáng */
+    .circle-btn {
+      transition: all 0.25s cubic-bezier(0.4, 0, 0.2, 1);
+    }
+    .circle-btn:hover {
+      transform: scale(1.12);
+      box-shadow: 0 0 25px rgba(0, 240, 255, 0.6);
+    }
+    .circle-btn:active {
+      transform: scale(0.95);
+    }
+
+    /* Nút tròn Giới thiệu thành viên góc trái */
+    .member-float-btn {
+      transition: all 0.3s cubic-bezier(0.4, 0, 0.2, 1);
+    }
+    .member-float-btn:hover {
+      transform: scale(1.1) rotate(5deg);
+      box-shadow: 0 0 30px rgba(168, 85, 247, 0.7);
+    }
+
+    /* Pulse animation cho HUD markers */
+    @keyframes ping-slow {
+      0% { transform: scale(1); opacity: 0.8; }
+      100% { transform: scale(2.2); opacity: 0; }
+    }
+    .animate-ping-slow {
+      animation: ping-slow 1.8s cubic-bezier(0, 0, 0.2, 1) infinite;
+    }
+
+    /* Style cho công thức toán học/vật lý không bị lỗi ký tự */
+    .math-formula {
+      font-family: 'Share Tech Mono', monospace;
+      background: rgba(8, 145, 178, 0.2);
+      border: 1px solid rgba(6, 182, 212, 0.4);
+      padding: 2px 6px;
+      border-radius: 4px;
+      color: #67e8f9;
+      font-weight: 600;
+    }
+
+    /* Mô phỏng viên giấy vo tròn dạng 3D khối cầu Sci-Fi */
+    .paper-sphere {
+      border-radius: 50%;
+      background: radial-gradient(circle at 35% 35%, #f1f5f9 0%, #94a3b8 55%, #334155 100%);
+      box-shadow: inset -6px -6px 15px rgba(0,0,0,0.6), 0 0 20px rgba(56, 189, 248, 0.4);
+      transition: all 0.5s cubic-bezier(0.34, 1.56, 0.64, 1);
+      position: relative;
+    }
+    .paper-sphere::after {
+      content: '';
+      position: absolute;
+      inset: 4px;
+      border-radius: 50%;
+      border: 1px dashed rgba(56, 189, 248, 0.5);
+    }
+  </style>
+</head>
+<body class="bg-gray-950 text-slate-100 h-screen w-screen overflow-hidden flex flex-col justify-between">
+
+  <!-- Header trạng thái Slide và thanh công cụ phụ trợ -->
+  <header class="w-full z-40 bg-gray-900/80 backdrop-blur-md border-b border-cyan-900/40 px-4 py-2.5 flex items-center justify-between text-xs sm:text-sm">
+    <div class="flex items-center space-x-3">
+      <div class="flex items-center gap-2">
+        <span class="inline-block w-2.5 h-2.5 rounded-full bg-cyan-400 animate-pulse"></span>
+        <span class="font-scifi font-bold tracking-wider text-cyan-400 uppercase text-xs sm:text-sm">LAB: RƠI TỰ DO & LỰC CẢN</span>
+      </div>
+      <span class="text-gray-500">|</span>
+      <span id="slide-indicator" class="font-mono-tech text-gray-300">KHUNG: 1 / 6</span>
+    </div>
+
+    <div class="flex items-center gap-2">
+      <button onclick="toggleFullscreen()" class="bg-gray-800 hover:bg-gray-700 text-cyan-300 border border-cyan-700/50 px-3 py-1 rounded text-xs transition flex items-center gap-1.5" title="Chế độ toàn màn hình">
+        <i class="fa-solid fa-expand"></i>
+        <span class="hidden sm:inline">Toàn màn hình</span>
+      </button>
+    </div>
+  </header>
+
+  <!-- Vùng trung tâm chiếu trình chiếu (Slide Viewer) -->
+  <main class="relative flex-1 w-full h-full flex items-center justify-center p-2 sm:p-4 overflow-hidden">
+    
+    <!-- NÚT TRÒN BÊN TRÁI: GIỚI THIỆU THÀNH VIÊN -->
+    <div class="absolute left-4 sm:left-8 top-1/2 -translate-y-1/2 flex flex-col items-center z-50">
+      <div class="relative group">
+        <button onclick="toggleMembersModal()" class="member-float-btn w-14 h-14 sm:w-16 sm:h-16 rounded-full bg-gradient-to-br from-purple-900/90 via-fuchsia-950/90 to-purple-950/90 border-2 border-fuchsia-400 text-fuchsia-300 flex flex-col items-center justify-center shadow-lg shadow-purple-500/40 backdrop-blur-md">
+          <i class="fa-solid fa-users text-lg sm:text-xl"></i>
+          <span class="text-[9px] font-scifi font-bold uppercase tracking-tighter mt-0.5">Nhóm</span>
+        </button>
+        <!-- Tooltip -->
+        <div class="absolute left-full ml-3 top-1/2 -translate-y-1/2 px-3 py-1.5 rounded-lg bg-gray-900 border border-fuchsia-500 text-fuchsia-300 text-xs font-semibold whitespace-nowrap opacity-0 group-hover:opacity-100 transition pointer-events-none shadow-xl">
+          Danh Sách Thành Viên Nhóm
+        </div>
+      </div>
+    </div>
+
+    <div id="presentation-viewport" class="relative w-full max-w-5xl h-full max-h-[82vh] bg-black rounded-2xl overflow-hidden shadow-2xl border border-cyan-500/20 flex items-center justify-center">
+      
+      <!-- Lớp đường quét Laser HUD -->
+      <div id="scan-laser" class="scan-bar hidden"></div>
+
+      <!-- Slide 1: Video 1 (a1.mp4 - Thả giấy ban đầu) -->
+      <div class="slide-item absolute inset-0 w-full h-full flex items-center justify-center bg-black transition-opacity duration-300" data-index="1">
+        <div id="status-vid-1" class="hidden absolute top-4 bg-emerald-950/90 border border-emerald-400 text-emerald-300 px-4 py-1.5 rounded-full text-xs font-mono-tech z-30 shadow-lg animate-pulse">
+          ✓ VIDEO KẾT THÚC — HÃY BẤM NÚT CHUYỂN TIẾP TRÊN CỘT BÊN PHẢI ➔
+        </div>
+        <video id="vid-1" class="w-full h-full object-contain" playsinline preload="auto">
+          <source src="a1.mp4" type="video/mp4">
+          Trình duyệt của bạn không hỗ trợ thẻ video.
+        </video>
+        <button onclick="replayVideo('vid-1')" class="replay-btn absolute bottom-5 left-5 z-20 bg-gray-900/80 hover:bg-cyan-900/90 text-cyan-300 border border-cyan-500/60 backdrop-blur-md px-4 py-2 rounded-xl text-sm font-semibold flex items-center gap-2 shadow-lg transition transform active:scale-95">
+          <i class="fa-solid fa-arrow-rotate-left"></i> Phát lại (a1.mp4)
+        </button>
+      </div>
+
+      <!-- Slide 2: Ảnh thứ 6 (image_f15942.jpg - 2 tờ giấy lớn nhỏ) -->
+      <div class="slide-item absolute inset-0 w-full h-full flex items-center justify-center bg-black hidden opacity-0 transition-opacity duration-300" data-index="2">
+        
+        <!-- NÚT TRÒN "VO TRÒN" NỔI BẬT ĐẶT TRỰC TIẾP TRÊN SLIDE NÀY -->
+        <div class="absolute top-5 left-5 z-30 flex items-center gap-3">
+          <button id="btn-crumple-action" onclick="toggleCrumpleSlide2()" class="px-4 py-2.5 rounded-full bg-gradient-to-r from-amber-500 to-orange-600 hover:from-amber-400 hover:to-orange-500 text-gray-950 font-scifi font-bold text-xs sm:text-sm flex items-center gap-2 shadow-lg shadow-orange-500/40 border-2 border-yellow-300 transition-all transform hover:scale-105 active:scale-95">
+            <i id="icon-crumple" class="fa-solid fa-hand-fist text-base"></i>
+            <span id="text-crumple">VO TRÒN 2 MẢNH GIẤY</span>
+          </button>
+        </div>
+
+        <div class="relative w-full h-full flex items-center justify-center overflow-hidden">
+          <!-- Hiển thị ảnh gốc lúc chưa vo tròn -->
+          <img id="img-slide-2" src="image_f15942.jpg" alt="Ảnh 2 tờ giấy lớn nhỏ" class="w-full h-full object-contain" onerror="renderFallbackSlide2(this)">
+
+          <!-- Lớp giả lập 3D hiển thị 2 viên giấy khi bấm nút VO TRÒN -->
+          <div id="crumple-stage" class="hidden absolute inset-0 bg-gray-950/95 flex items-center justify-center gap-16 sm:gap-28 z-20">
+            <div class="flex flex-col items-center gap-3">
+              <div class="paper-sphere w-24 h-24 sm:w-28 sm:h-28 flex items-center justify-center">
+                <span class="text-xs font-scifi font-bold text-gray-900 bg-white/70 px-2 py-0.5 rounded">VIÊN NHỎ</span>
+              </div>
+              <span class="text-cyan-300 font-mono-tech text-xs bg-cyan-950/80 px-2.5 py-1 rounded border border-cyan-500/40">Vo tròn từ Giấy Nhỏ</span>
+            </div>
+            <div class="flex flex-col items-center gap-3">
+              <div class="paper-sphere w-36 h-36 sm:w-44 sm:h-44 flex items-center justify-center">
+                <span class="text-xs font-scifi font-bold text-gray-900 bg-white/70 px-2 py-0.5 rounded">VIÊN LỚN</span>
+              </div>
+              <span class="text-cyan-300 font-mono-tech text-xs bg-cyan-950/80 px-2.5 py-1 rounded border border-cyan-500/40">Vo tròn từ Giấy Lớn</span>
+            </div>
+          </div>
+        </div>
+        
+        <!-- HUD Thấu Thị Sci-fi cho Slide 2: CẬP NHẬT ĐỘNG THEO TRẠNG THÁI CHƯA VO TRÒN HOẶC ĐÃ VO TRÒN -->
+        <div id="hud-slide-2" class="hud-overlay absolute inset-0 z-30 pointer-events-none holo-grid hidden flex flex-col justify-between p-4 sm:p-6 bg-cyan-950/20">
+          <div class="border-b border-cyan-400/50 pb-2 flex justify-between items-center">
+            <span class="font-scifi text-cyan-300 text-sm tracking-widest font-bold flex items-center gap-2">
+              <i class="fa-solid fa-microchip animate-spin"></i> SPECTRAL SCANNER: PHÂN TÍCH VẬT LIỆU
+            </span>
+            <span id="badge-crumple-status" class="font-mono-tech text-xs text-cyan-400 bg-cyan-950/70 border border-cyan-500/50 px-2 py-0.5 rounded">TRẠNG THÁI: TỜ GIẤY PHẲNG NGUYÊN BẢN</span>
+          </div>
+
+          <!-- Bảng thông số: Tự động hoán đổi nội dung khi chưa vo tròn và khi đã vo tròn -->
+          <div id="hud-slide-2-content" class="grid grid-cols-1 sm:grid-cols-2 gap-4 mt-auto">
+            <!-- Nội dung mặc định: Tờ giấy phẳng -->
+            <div class="bg-gray-900/90 border border-cyan-500/60 p-3 sm:p-4 rounded-xl shadow-xl backdrop-blur-md text-xs sm:text-sm">
+              <div class="text-cyan-400 font-bold font-scifi mb-1 flex items-center gap-2">
+                <i class="fa-solid fa-crosshairs text-cyan-400"></i> MẢNH GIẤY NHỎ (CHƯA VO TRÒN)
+              </div>
+              <ul class="font-mono-tech space-y-1 text-gray-300">
+                <li>• Khối lượng: <span class="text-white font-bold">m<sub>1</sub> ≈ 1.50 g</span></li>
+                <li>• Diện tích cản gió: <span class="text-amber-300 font-bold">S<sub>1</sub> ≈ 120 cm²</span></li>
+                <li>• Chất liệu: <span class="text-cyan-200">Sợi Xenlulozo nén mỏng</span></li>
+                <li>• Khí động học: <span class="text-rose-400 font-semibold">Bề mặt phẳng tạo sức cản không khí lớn</span></li>
+              </ul>
+            </div>
+
+            <div class="bg-gray-900/90 border border-cyan-500/60 p-3 sm:p-4 rounded-xl shadow-xl backdrop-blur-md text-xs sm:text-sm">
+              <div class="text-cyan-400 font-bold font-scifi mb-1 flex items-center gap-2">
+                <i class="fa-solid fa-crosshairs text-cyan-400"></i> MẢNH GIẤY LỚN (CHƯA VO TRÒN)
+              </div>
+              <ul class="font-mono-tech space-y-1 text-gray-300">
+                <li>• Khối lượng: <span class="text-white font-bold">m<sub>2</sub> ≈ 3.00 g</span> (Gấp đôi giấy nhỏ)</li>
+                <li>• Diện tích cản gió: <span class="text-rose-400 font-bold">S<sub>2</sub> ≈ 240 cm²</span> (Cực lớn)</li>
+                <li>• Chất liệu: <span class="text-cyan-200">Sợi Xenlulozo nén mỏng</span></li>
+                <li>• Khí động học: <span class="text-rose-400 font-semibold">Chịu lực đẩy khí quyển mặt dưới cực mạnh</span></li>
+              </ul>
+            </div>
+          </div>
+        </div>
+      </div>
+
+      <!-- Slide 3: Video 2 (luu.mp4 - Vo tròn giấy) -->
+      <div class="slide-item absolute inset-0 w-full h-full flex items-center justify-center bg-black hidden opacity-0 transition-opacity duration-300" data-index="3">
+        <div id="status-vid-2" class="hidden absolute top-4 bg-emerald-950/90 border border-emerald-400 text-emerald-300 px-4 py-1.5 rounded-full text-xs font-mono-tech z-30 shadow-lg animate-pulse">
+          ✓ VIDEO KẾT THÚC — HÃY BẤM NÚT CHUYỂN TIẾP TRÊN CỘT BÊN PHẢI ➔
+        </div>
+        <video id="vid-2" class="w-full h-full object-contain" playsinline preload="auto">
+          <source src="2a1.mp4" type="video/mp4">
+          Trình duyệt không hỗ trợ thẻ video.
+        </video>
+        <button onclick="replayVideo('vid-2')" class="replay-btn absolute bottom-5 left-5 z-20 bg-gray-900/80 hover:bg-cyan-900/90 text-cyan-300 border border-cyan-500/60 backdrop-blur-md px-4 py-2 rounded-xl text-sm font-semibold flex items-center gap-2 shadow-lg transition transform active:scale-95">
+          <i class="fa-solid fa-arrow-rotate-left"></i> Phát lại (2a1.mp4)
+        </button>
+      </div>
+
+      <!-- Slide 4: Video 3 (1104.mp4 - Thả 2 viên vo tròn rơi cùng lúc) -->
+      <div class="slide-item absolute inset-0 w-full h-full flex items-center justify-center bg-black hidden opacity-0 transition-opacity duration-300" data-index="4">
+        <div id="status-vid-3" class="hidden absolute top-4 bg-emerald-950/90 border border-emerald-400 text-emerald-300 px-4 py-1.5 rounded-full text-xs font-mono-tech z-30 shadow-lg animate-pulse">
+          ✓ VIDEO KẾT THÚC — HÃY BẤM NÚT CHUYỂN TIẾP TRÊN CỘT BÊN PHẢI ➔
+        </div>
+        <video id="vid-3" class="w-full h-full object-contain" playsinline preload="auto">
+          <source src="1104.mp4" type="video/mp4">
+          Trình duyệt không hỗ trợ thẻ video.
+        </video>
+        <button onclick="replayVideo('vid-3')" class="replay-btn absolute bottom-5 left-5 z-20 bg-gray-900/80 hover:bg-cyan-900/90 text-cyan-300 border border-cyan-500/60 backdrop-blur-md px-4 py-2 rounded-xl text-sm font-semibold flex items-center gap-2 shadow-lg transition transform active:scale-95">
+          <i class="fa-solid fa-arrow-rotate-left"></i> Phát lại (1104.mp4)
+        </button>
+
+        <!-- HUD Thấu Thị cho Slide 4: Chuẩn hóa công thức khoa học, tuyệt đối không lỗi LaTeX -->
+        <div id="hud-slide-4" class="hud-overlay absolute inset-0 z-30 pointer-events-none holo-grid hidden flex flex-col justify-end p-4 sm:p-6 bg-cyan-950/30">
+          <div class="bg-gray-900/95 border-2 border-cyan-400 p-4 sm:p-5 rounded-2xl shadow-2xl backdrop-blur-lg max-w-2xl mx-auto">
+            <div class="flex items-center gap-2 text-cyan-400 font-scifi font-bold text-sm sm:text-base border-b border-cyan-500/40 pb-2 mb-3">
+              <i class="fa-solid fa-atom text-cyan-400 text-lg"></i> CÂU TRẢ LỜI VẬT LÝ: TẠI SAO RƠI CÙNG LÚC?
+            </div>
+            <div class="space-y-2 text-xs sm:text-sm text-gray-200 leading-relaxed font-mono-tech">
+              <p>• <span class="text-cyan-300 font-bold">Biến đổi hình dạng:</span> Khi cả hai tờ giấy đều được <span class="text-amber-300 font-bold">vo tròn chặt</span>, diện tích bề mặt tiếp xúc trực diện với luồng không khí bị thu hẹp xuống mức tối thiểu.</p>
+              <p>• <span class="text-cyan-300 font-bold">Triệt tiêu lực cản không khí:</span> Lực cản <span class="math-formula">F<sub>cản</sub></span> lúc này trở nên rất nhỏ không đáng kể (<span class="math-formula">F<sub>c</sub> ≈ 0</span>) so với trọng lượng của từng viên giấy.</p>
+              <p>• <span class="text-cyan-300 font-bold">Phương trình gia tốc Định luật II Newton:</span><br>
+                <span class="inline-block bg-cyan-950/80 px-3 py-1 rounded text-cyan-200 font-bold border border-cyan-500/50 mt-1">
+                  a = (P - F<sub>cản</sub>) / m ≈ P / m = (m · g) / m = g ≈ 9.8 m/s²
+                </span>
+              </p>
+              <p class="text-cyan-200 border-l-2 border-cyan-400 pl-3 italic mt-1">
+                ➔ Kết luận: Mặc dù trọng lượng viên giấy nhỏ bé hơn viên giấy lớn, khi triệt tiêu được lực cản không khí, cả hai đều rơi tự do với cùng gia tốc g và chạm đất cùng lúc!
+              </p>
+            </div>
+          </div>
+        </div>
+      </div>
+
+      <!-- Slide 5: Ảnh thứ 4 (Ảnh chụp màn hình 2026-11-04 212205.jpg - Giấy vo tròn và giấy phẳng) -->
+      <div class="slide-item absolute inset-0 w-full h-full flex items-center justify-center bg-black hidden opacity-0 transition-opacity duration-300" data-index="5">
+        <div class="relative w-full h-full flex items-center justify-center overflow-hidden">
+          <img id="img-slide-5" src="2a12.jpg" alt="Giấy vo tròn và giấy phẳng" class="w-full h-full object-contain" onerror="renderFallbackSlide5(this)">
+        </div>
+        
+        <!-- HUD Thấu Thị Slide 5: Con trỏ Sci-fi chỉ đúng 2 vật thể -->
+        <div id="hud-slide-5" class="hud-overlay absolute inset-0 z-30 pointer-events-none holo-grid hidden">
+          <!-- Pointer 1: Trỏ thẳng vào viên giấy vo tròn -->
+          <div class="absolute bottom-[20%] left-[8%] sm:left-[16%] max-w-[240px]">
+            <div class="relative">
+              <span class="absolute -top-3 -left-3 flex h-6 w-6">
+                <span class="animate-ping-slow absolute inline-flex h-full w-full rounded-full bg-cyan-400 opacity-75"></span>
+                <span class="relative inline-flex rounded-full h-6 w-6 bg-cyan-500/80 items-center justify-center text-[10px] text-black font-bold">1</span>
+              </span>
+              <div class="bg-gray-900/95 border border-cyan-400 rounded-xl p-3 shadow-2xl backdrop-blur-md text-xs">
+                <div class="text-cyan-300 font-scifi font-bold mb-1 flex items-center gap-1">
+                  <i class="fa-solid fa-circle-dot"></i> VẬT VO TRÒN
+                </div>
+                <div class="font-mono-tech space-y-0.5 text-gray-300">
+                  <p>• Trọng lượng: <span class="text-white font-bold">m<sub>1</sub> ≈ 1.50 g</span></p>
+                  <p>• Diện tích cản gió: <span class="text-emerald-400 font-bold">S<sub>1</sub> ≈ 4.2 cm²</span> (Cực nhỏ)</p>
+                  <p>• Hình dạng: <span class="text-cyan-200">Khối cầu nén khí động</span></p>
+                  <p>• Lực cản không khí: <span class="text-emerald-400 font-bold">F<sub>c</sub> ≈ 0</span></p>
+                </div>
+              </div>
+            </div>
+          </div>
+
+          <!-- Pointer 2: Trỏ thẳng vào tờ giấy phẳng -->
+          <div class="absolute top-[24%] right-[6%] sm:right-[14%] max-w-[260px]">
+            <div class="relative">
+              <span class="absolute -top-3 -left-3 flex h-6 w-6">
+                <span class="animate-ping-slow absolute inline-flex h-full w-full rounded-full bg-amber-400 opacity-75"></span>
+                <span class="relative inline-flex rounded-full h-6 w-6 bg-amber-500/80 items-center justify-center text-[10px] text-black font-bold">2</span>
+              </span>
+              <div class="bg-gray-900/95 border border-amber-400 rounded-xl p-3 shadow-2xl backdrop-blur-md text-xs">
+                <div class="text-amber-400 font-scifi font-bold mb-1 flex items-center gap-1">
+                  <i class="fa-solid fa-sheet-plastic"></i> TỜ GIẤY TRẮNG PHẲNG
+                </div>
+                <div class="font-mono-tech space-y-0.5 text-gray-300">
+                  <p>• Trọng lượng: <span class="text-white font-bold">m<sub>2</sub> ≈ 3.00 g</span> (Nặng hơn)</p>
+                  <p>• Diện tích cản gió: <span class="text-rose-400 font-bold">S<sub>2</sub> ≈ 240 cm²</span> (Gấp ~60 lần)</p>
+                  <p>• Hình dạng: <span class="text-amber-200">Mặt phẳng mở rộng</span></p>
+                  <p>• Lực cản không khí: <span class="text-rose-400 font-bold">F<sub>c</sub> ≈ P</span></p>
+                </div>
+              </div>
+            </div>
+          </div>
+        </div>
+      </div>
+
+      <!-- Slide 6: Video 5 (34.mp4 - Thả rơi đối chiếu giấy phẳng và viên tròn) -->
+      <div class="slide-item absolute inset-0 w-full h-full flex items-center justify-center bg-black hidden opacity-0 transition-opacity duration-300" data-index="6">
+        <div id="status-vid-5" class="hidden absolute top-4 bg-emerald-950/90 border border-emerald-400 text-emerald-300 px-4 py-1.5 rounded-full text-xs font-mono-tech z-30 shadow-lg animate-pulse">
+          ✓ THÍ NGHIỆM HOÀN TẤT
+        </div>
+        <video id="vid-5" class="w-full h-full object-contain" playsinline preload="auto">
+          <source src="34.mp4" type="video/mp4">
+          Trình duyệt không hỗ trợ thẻ video.
+        </video>
+        <button onclick="replayVideo('vid-5')" class="replay-btn absolute bottom-5 left-5 z-20 bg-gray-900/80 hover:bg-cyan-900/90 text-cyan-300 border border-cyan-500/60 backdrop-blur-md px-4 py-2 rounded-xl text-sm font-semibold flex items-center gap-2 shadow-lg transition transform active:scale-95">
+          <i class="fa-solid fa-arrow-rotate-left"></i> Phát lại (34.mp4)
+        </button>
+
+        <!-- HUD Thấu Thị Slide 6: Sửa triệt để lỗi mã LaTeX -->
+        <div id="hud-slide-6" class="hud-overlay absolute inset-0 z-30 pointer-events-none holo-grid hidden flex flex-col justify-end p-4 sm:p-6 bg-cyan-950/30">
+          <div class="bg-gray-900/95 border-2 border-red-500/70 p-4 sm:p-5 rounded-2xl shadow-2xl backdrop-blur-lg max-w-2xl mx-auto">
+            <div class="flex items-center gap-2 text-rose-400 font-scifi font-bold text-sm sm:text-base border-b border-rose-500/40 pb-2 mb-3">
+              <i class="fa-solid fa-shield-halved text-rose-400 text-lg"></i> NGUYÊN NHÂN VIÊN GIẤY RƠI NHANH HƠN TỜ GIẤY LỚN
+            </div>
+            <div class="space-y-2 text-xs sm:text-sm text-gray-200 leading-relaxed font-mono-tech">
+              <p>• <span class="text-rose-300 font-bold">Tác động của lực cản không khí:</span> Tờ giấy phẳng có bề mặt tiếp xúc không khí cực lớn (<span class="math-formula">S ≈ 240 cm²</span>). Luồng không khí bên dưới bị nén tạo lực cản <span class="math-formula">F<sub>cản</sub></span> cực mạnh chống lại trọng lực <span class="math-formula">P</span>.[cite: 7, 10]</p>
+              <p>• <span class="text-rose-300 font-bold">Gia tốc rơi bị triệt tiêu:</span> <span class="math-formula">a<sub>giấy phẳng</sub> = (P - F<sub>c</sub>) / m &lt;&lt; g</span>, khiến tờ giấy chao liệng và rơi rất chậm.[cite: 7, 10]</p>
+              <p>• <span class="text-emerald-400 font-bold">Viên giấy nhỏ vo tròn:</span> Diện tích tiếp xúc gió chỉ bằng <span class="math-formula">1/60</span>, lực cản không khí xấp xỉ 0 nên gia tốc <span class="math-formula">a<sub>viên</sub> ≈ g = 9.8 m/s²</span> và rơi tự do cực nhanh xuống trước.[cite: 7, 10]</p>
+              <p class="text-yellow-300 font-bold border-t border-gray-700 pt-2 text-xs sm:text-sm">
+                ➔ KẾT LUẬN: Vật rơi nhanh hay chậm trong không khí hoàn toàn KHÔNG PHỤ THUỘC vào trọng lượng mà phụ thuộc vào HÌNH DẠNG VÀ DIỆN TÍCH CẢN GIÓ![cite: 7, 10]
+              </p>
+            </div>
+          </div>
+        </div>
+      </div>
+
+    </div>
+
+    <!-- 3 Ô TRÒN ĐIỀU HƯỚNG CỐ ĐỊNH Ở MÉP BÊN PHẢI -->
+    <div class="absolute right-4 sm:right-8 top-1/2 -translate-y-1/2 flex flex-col items-center gap-4 z-50">
+      
+      <!-- Nút 1: Mắt Thấu Thị -->
+      <div class="relative group">
+        <button id="btn-thau-thi" onclick="toggleThauThi()" class="circle-btn w-14 h-14 sm:w-16 sm:h-16 rounded-full bg-cyan-950/90 border-2 border-cyan-400 text-cyan-300 flex items-center justify-center shadow-lg shadow-cyan-500/30 backdrop-blur-md">
+          <i id="icon-thau-thi" class="fa-solid fa-eye text-xl sm:text-2xl transition duration-300"></i>
+        </button>
+        <div class="absolute right-full mr-3 top-1/2 -translate-y-1/2 px-3 py-1.5 rounded-lg bg-gray-900 border border-cyan-500 text-cyan-300 text-xs font-semibold whitespace-nowrap opacity-0 group-hover:opacity-100 transition pointer-events-none shadow-xl">
+          Mắt Thấu Thị (HUD Scan)
+        </div>
+      </div>
+
+      <!-- Nút 2: Mắt So Sánh -->
+      <div class="relative group">
+        <button id="btn-so-sanh" onclick="toggleSoSanh()" class="circle-btn w-14 h-14 sm:w-16 sm:h-16 rounded-full bg-indigo-950/90 border-2 border-indigo-400 text-indigo-300 flex items-center justify-center shadow-lg shadow-indigo-500/30 backdrop-blur-md">
+          <i id="icon-so-sanh" class="fa-solid fa-code-compare text-xl sm:text-2xl transition duration-300"></i>
+        </button>
+        <div class="absolute right-full mr-3 top-1/2 -translate-y-1/2 px-3 py-1.5 rounded-lg bg-gray-900 border border-indigo-500 text-indigo-300 text-xs font-semibold whitespace-nowrap opacity-0 group-hover:opacity-100 transition pointer-events-none shadow-xl">
+          Mắt So Sánh (Đối chiếu)
+        </div>
+      </div>
+
+      <!-- Nút 3: Nút Chuyển Tiếp Khung -->
+      <div class="relative group">
+        <button id="btn-next" onclick="goToNextSlide()" class="circle-btn w-14 h-14 sm:w-16 sm:h-16 rounded-full bg-emerald-950/90 border-2 border-emerald-400 text-emerald-300 flex items-center justify-center shadow-lg shadow-emerald-500/30 backdrop-blur-md">
+          <i class="fa-solid fa-arrow-right text-xl sm:text-2xl transition duration-300 group-hover:translate-x-0.5"></i>
+        </button>
+        <div class="absolute right-full mr-3 top-1/2 -translate-y-1/2 px-3 py-1.5 rounded-lg bg-gray-900 border border-emerald-500 text-emerald-300 text-xs font-semibold whitespace-nowrap opacity-0 group-hover:opacity-100 transition pointer-events-none shadow-xl">
+          Chuyển Tiếp Khung
+        </div>
+      </div>
+
+    </div>
+
+    <!-- MODAL GIỚI THIỆU THÀNH VIÊN NHÓM CỰC ĐẸP (Sci-Fi Glassmorphism) -->
+    <div id="modal-members" class="fixed inset-0 z-50 bg-black/85 backdrop-blur-md hidden flex items-center justify-center p-4">
+      <div class="relative bg-gradient-to-b from-gray-900 via-purple-950/40 to-gray-900 border-2 border-purple-500/60 rounded-3xl w-full max-w-4xl overflow-hidden shadow-2xl shadow-purple-500/20 flex flex-col animate-in fade-in zoom-in duration-300">
+        
+        <!-- Header modal thành viên -->
+        <div class="bg-purple-950/80 px-6 py-4 border-b border-purple-500/50 flex items-center justify-between">
+          <div class="flex items-center gap-3">
+            <div class="w-9 h-9 rounded-xl bg-purple-500/20 border border-purple-400 flex items-center justify-center text-purple-300">
+              <i class="fa-solid fa-atom animate-spin"></i>
+            </div>
+            <div>
+              <h3 class="text-fuchsia-300 font-scifi font-bold text-base sm:text-lg tracking-wider">BAN NGHIÊN CỨU & THỰC HIỆN ĐỀ TÀI</h3>
+              <p class="text-xs font-mono-tech text-gray-400">NHÓM THÍ NGHIỆM VẬT LÝ - LỚP 10</p>
+            </div>
+          </div>
+          <button onclick="toggleMembersModal()" class="w-8 h-8 rounded-full bg-gray-800 hover:bg-red-500/20 hover:text-red-400 text-gray-400 border border-gray-700 flex items-center justify-center transition">
+            <i class="fa-solid fa-xmark"></i>
+          </button>
+        </div>
+
+        <!-- Danh sách thẻ 9 thành viên nhóm -->
+        <div class="p-6 overflow-y-auto max-h-[70vh]">
+          <div class="grid grid-cols-1 sm:grid-cols-2 md:grid-cols-3 gap-4">
+            
+            <!-- 1. Hà Nhật -->
+            <div class="bg-gray-900/80 border border-purple-500/40 hover:border-purple-400 p-4 rounded-2xl flex items-center gap-3 shadow-lg hover:shadow-purple-500/20 transition group">
+              <div class="w-11 h-11 rounded-xl bg-purple-950 border border-purple-400 flex items-center justify-center text-purple-300 font-scifi font-bold text-base group-hover:scale-110 transition">
+                01
+              </div>
+              <div>
+                <h4 class="font-bold text-slate-100 group-hover:text-purple-300 transition text-sm">Hà Nhật</h4>
+                <span class="text-[11px] font-mono-tech text-cyan-400 bg-cyan-950/60 px-2 py-0.5 rounded border border-cyan-800">Thành viên nhóm</span>
+              </div>
+            </div>
+
+            <!-- 2. Hoàng Hảo -->
+            <div class="bg-gray-900/80 border border-purple-500/40 hover:border-purple-400 p-4 rounded-2xl flex items-center gap-3 shadow-lg hover:shadow-purple-500/20 transition group">
+              <div class="w-11 h-11 rounded-xl bg-purple-950 border border-purple-400 flex items-center justify-center text-purple-300 font-scifi font-bold text-base group-hover:scale-110 transition">
+                02
+              </div>
+              <div>
+                <h4 class="font-bold text-slate-100 group-hover:text-purple-300 transition text-sm">Hoàng Hảo</h4>
+                <span class="text-[11px] font-mono-tech text-cyan-400 bg-cyan-950/60 px-2 py-0.5 rounded border border-cyan-800">Thành viên nhóm</span>
+              </div>
+            </div>
+
+            <!-- 3. Phương Anh -->
+            <div class="bg-gray-900/80 border border-purple-500/40 hover:border-purple-400 p-4 rounded-2xl flex items-center gap-3 shadow-lg hover:shadow-purple-500/20 transition group">
+              <div class="w-11 h-11 rounded-xl bg-purple-950 border border-purple-400 flex items-center justify-center text-purple-300 font-scifi font-bold text-base group-hover:scale-110 transition">
+                03
+              </div>
+              <div>
+                <h4 class="font-bold text-slate-100 group-hover:text-purple-300 transition text-sm">Phương Anh</h4>
+                <span class="text-[11px] font-mono-tech text-cyan-400 bg-cyan-950/60 px-2 py-0.5 rounded border border-cyan-800">Thành viên nhóm</span>
+              </div>
+            </div>
+
+            <!-- 4. Xuân Mai -->
+            <div class="bg-gray-900/80 border border-purple-500/40 hover:border-purple-400 p-4 rounded-2xl flex items-center gap-3 shadow-lg hover:shadow-purple-500/20 transition group">
+              <div class="w-11 h-11 rounded-xl bg-purple-950 border border-purple-400 flex items-center justify-center text-purple-300 font-scifi font-bold text-base group-hover:scale-110 transition">
+                04
+              </div>
+              <div>
+                <h4 class="font-bold text-slate-100 group-hover:text-purple-300 transition text-sm">Xuân Mai</h4>
+                <span class="text-[11px] font-mono-tech text-cyan-400 bg-cyan-950/60 px-2 py-0.5 rounded border border-cyan-800">Thành viên nhóm</span>
+              </div>
+            </div>
+
+            <!-- 5. Minh Đức -->
+            <div class="bg-gray-900/80 border border-purple-500/40 hover:border-purple-400 p-4 rounded-2xl flex items-center gap-3 shadow-lg hover:shadow-purple-500/20 transition group">
+              <div class="w-11 h-11 rounded-xl bg-purple-950 border border-purple-400 flex items-center justify-center text-purple-300 font-scifi font-bold text-base group-hover:scale-110 transition">
+                05
+              </div>
+              <div>
+                <h4 class="font-bold text-slate-100 group-hover:text-purple-300 transition text-sm">Minh Đức</h4>
+                <span class="text-[11px] font-mono-tech text-cyan-400 bg-cyan-950/60 px-2 py-0.5 rounded border border-cyan-800">Thành viên nhóm</span>
+              </div>
+            </div>
+
+            <!-- 6. Ngọc Nhi -->
+            <div class="bg-gray-900/80 border border-purple-500/40 hover:border-purple-400 p-4 rounded-2xl flex items-center gap-3 shadow-lg hover:shadow-purple-500/20 transition group">
+              <div class="w-11 h-11 rounded-xl bg-purple-950 border border-purple-400 flex items-center justify-center text-purple-300 font-scifi font-bold text-base group-hover:scale-110 transition">
+                06
+              </div>
+              <div>
+                <h4 class="font-bold text-slate-100 group-hover:text-purple-300 transition text-sm">Ngọc Nhi</h4>
+                <span class="text-[11px] font-mono-tech text-cyan-400 bg-cyan-950/60 px-2 py-0.5 rounded border border-cyan-800">Thành viên nhóm</span>
+              </div>
+            </div>
+
+            <!-- 7. Hải Đăng -->
+            <div class="bg-gray-900/80 border border-purple-500/40 hover:border-purple-400 p-4 rounded-2xl flex items-center gap-3 shadow-lg hover:shadow-purple-500/20 transition group">
+              <div class="w-11 h-11 rounded-xl bg-purple-950 border border-purple-400 flex items-center justify-center text-purple-300 font-scifi font-bold text-base group-hover:scale-110 transition">
+                07
+              </div>
+              <div>
+                <h4 class="font-bold text-slate-100 group-hover:text-purple-300 transition text-sm">Hải Đăng</h4>
+                <span class="text-[11px] font-mono-tech text-cyan-400 bg-cyan-950/60 px-2 py-0.5 rounded border border-cyan-800">Thành viên nhóm</span>
+              </div>
+            </div>
+
+            <!-- 8. Thùy Dương -->
+            <div class="bg-gray-900/80 border border-purple-500/40 hover:border-purple-400 p-4 rounded-2xl flex items-center gap-3 shadow-lg hover:shadow-purple-500/20 transition group">
+              <div class="w-11 h-11 rounded-xl bg-purple-950 border border-purple-400 flex items-center justify-center text-purple-300 font-scifi font-bold text-base group-hover:scale-110 transition">
+                08
+              </div>
+              <div>
+                <h4 class="font-bold text-slate-100 group-hover:text-purple-300 transition text-sm">Thùy Dương</h4>
+                <span class="text-[11px] font-mono-tech text-cyan-400 bg-cyan-950/60 px-2 py-0.5 rounded border border-cyan-800">Thành viên nhóm</span>
+              </div>
+            </div>
+
+            <!-- 9. Hà Phương -->
+            <div class="bg-gray-900/80 border border-purple-500/40 hover:border-purple-400 p-4 rounded-2xl flex items-center gap-3 shadow-lg hover:shadow-purple-500/20 transition group">
+              <div class="w-11 h-11 rounded-xl bg-purple-950 border border-purple-400 flex items-center justify-center text-purple-300 font-scifi font-bold text-base group-hover:scale-110 transition">
+                09
+              </div>
+              <div>
+                <h4 class="font-bold text-slate-100 group-hover:text-purple-300 transition text-sm">Hà Phương</h4>
+                <span class="text-[11px] font-mono-tech text-cyan-400 bg-cyan-950/60 px-2 py-0.5 rounded border border-cyan-800">Thành viên nhóm</span>
+              </div>
+            </div>
+
+          </div>
+        </div>
+      </div>
+    </div>
+
+    <!-- Modal Mắt So Sánh: Bảng Đối Chiếu Toàn Diện -->
+    <div id="modal-so-sanh" class="fixed inset-0 z-50 bg-black/80 backdrop-blur-md hidden flex items-center justify-center p-4">
+      <div class="bg-gray-900 border border-indigo-500/70 rounded-2xl w-full max-w-3xl overflow-hidden shadow-2xl flex flex-col">
+        <div class="bg-indigo-950/80 px-5 py-3 border-b border-indigo-500/50 flex items-center justify-between">
+          <div class="flex items-center gap-2 text-indigo-300 font-scifi font-bold">
+            <i class="fa-solid fa-scale-balanced"></i> MẮT SO SÁNH: MA TRẬN ĐỐI CHIẾU THÍ NGHIỆM
+          </div>
+          <button onclick="toggleSoSanh()" class="text-gray-400 hover:text-white text-lg">
+            <i class="fa-solid fa-xmark"></i>
+          </button>
+        </div>
+        <div class="p-5 overflow-y-auto max-h-[70vh] font-mono-tech space-y-4 text-xs sm:text-sm">
+          <table class="w-full text-left border-collapse border border-gray-800">
+            <thead>
+              <tr class="bg-gray-800/80 text-cyan-300">
+                <th class="p-2.5 border border-gray-700">Đặc tính / Yếu tố</th>
+                <th class="p-2.5 border border-gray-700">Tờ Giấy Phẳng (Mở rộng)</th>
+                <th class="p-2.5 border border-gray-700">Viên Giấy Vo Tròn</th>
+              </tr>
+            </thead>
+            <tbody class="text-gray-300">
+              <tr class="hover:bg-gray-800/40">
+                <td class="p-2.5 border border-gray-800 font-bold text-gray-200">Khối lượng (m)</td>
+                <td class="p-2.5 border border-gray-800 text-amber-300">Lớn hơn (~ 3.0g)</td>
+                <td class="p-2.5 border border-gray-800 text-amber-300">Nhỏ hơn (~ 1.5g)</td>
+              </tr>
+              <tr class="hover:bg-gray-800/40">
+                <td class="p-2.5 border border-gray-800 font-bold text-gray-200">Diện tích cản gió (S)</td>
+                <td class="p-2.5 border border-gray-800 text-red-400">Rất lớn (~ 240 cm²)</td>
+                <td class="p-2.5 border border-gray-800 text-emerald-400">Rất bé (~ 4.2 cm²)</td>
+              </tr>
+              <tr class="hover:bg-gray-800/40">
+                <td class="p-2.5 border border-gray-800 font-bold text-gray-200">Lực cản không khí (Fc)</td>
+                <td class="p-2.5 border border-gray-800 text-red-400">Rất đáng kể (F<sub>c</sub> ≈ P)</td>
+                <td class="p-2.5 border border-gray-800 text-emerald-400">Không đáng kể (F<sub>c</sub> ≈ 0)</td>
+              </tr>
+              <tr class="hover:bg-gray-800/40">
+                <td class="p-2.5 border border-gray-800 font-bold text-gray-200">Gia tốc rơi (a)</td>
+                <td class="p-2.5 border border-gray-800 text-yellow-300">a &lt;&lt; g (Rơi chậm, chao liệng)</td>
+                <td class="p-2.5 border border-gray-800 text-cyan-300">a ≈ g = 9.8 m/s² (Rơi nhanh)</td>
+              </tr>
+              <tr class="hover:bg-gray-800/40">
+                <td class="p-2.5 border border-gray-800 font-bold text-gray-200">Rơi trong chân không</td>
+                <td class="p-2.5 border border-gray-800 text-emerald-300" colspan="2">Cả hai sẽ rơi cùng lúc và chạm đáy cùng lúc 100%!</td>
+              </tr>
+            </tbody>
+          </table>
+          <div class="bg-indigo-950/40 border-l-4 border-indigo-500 p-3 text-xs text-indigo-200">
+            <strong>Nguyên lý Galileo Galilei:</strong> Nếu không có lực cản của không khí, tất cả các vật sẽ rơi như nhau với cùng một gia tốc rơi tự do tại cùng một địa điểm.
+          </div>
+        </div>
+      </div>
+    </div>
+
+  </main>
+
+  <!-- Thanh tiến trình dưới đáy (Timeline indicator) -->
+  <footer class="w-full bg-gray-900/90 border-t border-cyan-900/40 px-4 py-2 flex items-center justify-between text-xs font-mono-tech z-40">
+    <div class="flex items-center gap-2 text-gray-400">
+      <span class="text-cyan-400 font-bold">KỊCH BẢN THÍ NGHIỆM:</span>
+      <span id="slide-name" class="text-gray-200 font-semibold">Video 1: a1.mp4</span>
+    </div>
+    <div class="flex items-center gap-1 sm:gap-2">
+      <button onclick="goToSlide(1)" class="step-btn px-2 py-0.5 rounded bg-cyan-500 text-black font-bold">1</button>
+      <button onclick="goToSlide(2)" class="step-btn px-2 py-0.5 rounded bg-gray-800 text-gray-300 hover:bg-gray-700">2</button>
+      <button onclick="goToSlide(3)" class="step-btn px-2 py-0.5 rounded bg-gray-800 text-gray-300 hover:bg-gray-700">3</button>
+      <button onclick="goToSlide(4)" class="step-btn px-2 py-0.5 rounded bg-gray-800 text-gray-300 hover:bg-gray-700">4</button>
+      <button onclick="goToSlide(5)" class="step-btn px-2 py-0.5 rounded bg-gray-800 text-gray-300 hover:bg-gray-700">5</button>
+      <button onclick="goToSlide(6)" class="step-btn px-2 py-0.5 rounded bg-gray-800 text-gray-300 hover:bg-gray-700">6</button>
+    </div>
+  </footer>
+
+  <script>
+    let currentSlide = 1;
+    const totalSlides = 6;
+    let isThauThiActive = false;
+    let isCrumpledSlide2 = false; // Trạng thái vo tròn ở Slide 2
+
+    const slideTitles = [
+      "Khung 1: Video 1 ( - Thả giấy ban đầu)",
+      "Khung 2: Ảnh 6 (- So sánh 2 tờ giấy)",
+      "Khung 3: Video 2 (2a1.mp4 - Vo tròn giấy)",
+      "Khung 4: Video 3 (1104.mp4 - 2 viên vo tròn rơi cùng lúc)",
+      "Khung 5: Ảnh 4 (Ảnh chụp màn hình...212205.jpg - Giấy phẳng & vo tròn)",
+      "Khung 6: Video 5 (34.mp4 - Thả rơi đối chiếu)"
+    ];
+
+    window.addEventListener('DOMContentLoaded', () => {
+      setupVideoEvents();
+      updateSlideView();
+    });
+
+    // Fallback ảnh SVG phòng khi file chưa đặt cùng thư mục
+    function renderFallbackSlide2(imgElem) {
+      imgElem.src = "data:image/svg+xml;utf8,<svg xmlns='http://www.w3.org/2000/svg' width='800' height='1000' viewBox='0 0 800 1000'><rect width='800' height='1000' fill='%23111827'/><rect x='80' y='320' width='240' height='320' rx='16' fill='%23f8fafc' stroke='%2338bdf8' stroke-width='4'/><line x1='100' y1='360' x2='300' y2='360' stroke='%2394a3b8' stroke-width='2'/><line x1='100' y1='400' x2='300' y2='400' stroke='%2394a3b8' stroke-width='2'/><line x1='100' y1='440' x2='300' y2='440' stroke='%2394a3b8' stroke-width='2'/><text x='200' y='520' text-anchor='middle' fill='%230284c7' font-family='sans-serif' font-weight='bold' font-size='16'>TỜ GIẤY NHỎ</text><rect x='360' y='180' width='360' height='600' rx='20' fill='%23ffffff' stroke='%2338bdf8' stroke-width='4'/><line x1='390' y1='230' x2='690' y2='230' stroke='%2394a3b8' stroke-width='2'/><line x1='390' y1='280' x2='690' y2='280' stroke='%2394a3b8' stroke-width='2'/><line x1='390' y1='330' x2='690' y2='330' stroke='%2394a3b8' stroke-width='2'/><line x1='390' y1='380' x2='690' y2='380' stroke='%2394a3b8' stroke-width='2'/><text x='540' y='500' text-anchor='middle' fill='%230284c7' font-family='sans-serif' font-weight='bold' font-size='20'>TỜ GIẤY LỚN</text><text x='400' y='920' text-anchor='middle' fill='%2338bdf8' font-family='monospace' font-size='18'>[image_f15942.jpg - Hai tờ giấy]</text></svg>";
+    }
+
+    function renderFallbackSlide5(imgElem) {
+      imgElem.src = "data:image/svg+xml;utf8,<svg xmlns='http://www.w3.org/2000/svg' width='800' height='1000' viewBox='0 0 800 1000'><rect width='800' height='1000' fill='%2318181b'/><circle cx='230' cy='680' r='75' fill='%23e2e8f0' stroke='%2338bdf8' stroke-width='5'/><path d='M190 640 Q230 670 270 650 Q240 710 200 700 Z' fill='%23cbd5e1'/><text x='230' y='800' text-anchor='middle' fill='%2338bdf8' font-family='monospace' font-weight='bold' font-size='18'>1. VIÊN GIẤY VO TRÒN</text><rect x='360' y='260' width='380' height='300' rx='12' fill='%23ffffff' stroke='%23f59e0b' stroke-width='5'/><line x1='390' y1='310' x2='710' y2='310' stroke='%2394a3b8' stroke-width='2'/><line x1='390' y1='360' x2='710' y2='360' stroke='%2394a3b8' stroke-width='2'/><line x1='390' y1='410' x2='710' y2='410' stroke='%2394a3b8' stroke-width='2'/><line x1='390' y1='460' x2='710' y2='460' stroke='%2394a3b8' stroke-width='2'/><text x='550' y='590' text-anchor='middle' fill='%23f59e0b' font-family='monospace' font-weight='bold' font-size='18'>2. TỜ GIẤY PHẲNG</text><text x='400' y='930' text-anchor='middle' fill='%2394a3b8' font-family='monospace' font-size='16'>[Ảnh chụp màn hình 2026-11-04 212205.jpg]</text></svg>";
+    }
+
+    // Thiết lập sự kiện video - Dừng tại chỗ khi xong, BẮT BUỘC BẤM NÚT MỚI QUA
+    function setupVideoEvents() {
+      ['vid-1', 'vid-2', 'vid-3', 'vid-5'].forEach(id => {
+        const v = document.getElementById(id);
+        if (v) {
+          v.addEventListener('ended', () => {
+            const status = document.getElementById(`status-${id}`);
+            if (status) status.classList.remove('hidden');
+          });
+        }
+      });
+    }
+
+    // Cập nhật hiển thị Slide
+    function updateSlideView() {
+      const slides = document.querySelectorAll('.slide-item');
+      slides.forEach(s => {
+        s.classList.add('hidden', 'opacity-0');
+        s.classList.remove('opacity-100');
+        const v = s.querySelector('video');
+        if (v) v.pause();
+      });
+
+      closeAllHUDs();
+
+      const activeSlide = document.querySelector(`.slide-item[data-index="${currentSlide}"]`);
+      if (activeSlide) {
+        activeSlide.classList.remove('hidden');
+        setTimeout(() => {
+          activeSlide.classList.add('opacity-100');
+          activeSlide.classList.remove('opacity-0');
+        }, 30);
+
+        const curVid = activeSlide.querySelector('video');
+        if (curVid) {
+          curVid.currentTime = 0;
+          curVid.play().catch(() => {});
+        }
+      }
+
+      document.getElementById('slide-indicator').textContent = `KHUNG: ${currentSlide} / ${totalSlides}`;
+      document.getElementById('slide-name').textContent = slideTitles[currentSlide - 1];
+
+      const stepBtns = document.querySelectorAll('.step-btn');
+      stepBtns.forEach((btn, idx) => {
+        if (idx + 1 === currentSlide) {
+          btn.className = 'step-btn px-2 py-0.5 rounded bg-cyan-500 text-black font-bold';
+        } else {
+          btn.className = 'step-btn px-2 py-0.5 rounded bg-gray-800 text-gray-300 hover:bg-gray-700';
+        }
+      });
+    }
+
+    function goToNextSlide() {
+      if (currentSlide < totalSlides) {
+        currentSlide++;
+      } else {
+        currentSlide = 1;
+      }
+      updateSlideView();
+    }
+
+    function goToSlide(idx) {
+      if (idx >= 1 && idx <= totalSlides) {
+        currentSlide = idx;
+        updateSlideView();
+      }
+    }
+
+    function replayVideo(videoId) {
+      const v = document.getElementById(videoId);
+      const status = document.getElementById(`status-${videoId}`);
+      if (status) status.classList.add('hidden');
+      if (v) {
+        v.currentTime = 0;
+        v.play();
+      }
+    }
+
+    // Toggle hiệu ứng Vo Tròn ở Khung 2
+    function toggleCrumpleSlide2() {
+      isCrumpledSlide2 = !isCrumpledSlide2;
+      const img = document.getElementById('img-slide-2');
+      const stage = document.getElementById('crumple-stage');
+      const btnText = document.getElementById('text-crumple');
+      const btnIcon = document.getElementById('icon-crumple');
+      const hudContent = document.getElementById('hud-slide-2-content');
+      const badge = document.getElementById('badge-crumple-status');
+
+      if (isCrumpledSlide2) {
+        img.classList.add('hidden');
+        stage.classList.remove('hidden');
+        btnText.textContent = "MỞ PHẲNG 2 MẢNH GIẤY";
+        btnIcon.className = "fa-solid fa-arrows-spin text-base";
+        badge.textContent = "TRẠNG THÁI: ĐÃ ĐƯỢC VO TRÒN NÉN KHỐI";
+        badge.className = "font-mono-tech text-xs text-amber-400 bg-amber-950/70 border border-amber-500/50 px-2 py-0.5 rounded";
+
+        // Cập nhật bảng chỉ số khi đã vo tròn
+        hudContent.innerHTML = `
+          <div class="bg-gray-900/90 border border-cyan-500/60 p-3 sm:p-4 rounded-xl shadow-xl backdrop-blur-md text-xs sm:text-sm">
+            <div class="text-cyan-400 font-bold font-scifi mb-1 flex items-center gap-2">
+              <i class="fa-solid fa-circle-dot text-cyan-400"></i> VIÊN GIẤY NHỎ (ĐÃ VO TRÒN)
+            </div>
+            <ul class="font-mono-tech space-y-1 text-gray-300">
+              <li>• Khối lượng: <span class="text-white font-bold">m<sub>1</sub> ≈ 1.50 g (Không đổi)</span></li>
+              <li>• Diện tích cản gió: <span class="text-emerald-400 font-bold">S<sub>1</sub> ≈ 3.5 cm²</span> (Giảm ~34 lần)</li>
+              <li>• Hình dạng mới: <span class="text-cyan-200">Hình cầu nén compact</span></li>
+              <li>• Lực cản không khí: <span class="text-emerald-400 font-semibold">F<sub>cản 1</sub> ≈ 0</span></li>
+            </ul>
+          </div>
+
+          <div class="bg-gray-900/90 border border-cyan-500/60 p-3 sm:p-4 rounded-xl shadow-xl backdrop-blur-md text-xs sm:text-sm">
+            <div class="text-cyan-400 font-bold font-scifi mb-1 flex items-center gap-2">
+              <i class="fa-solid fa-circle-dot text-cyan-400"></i> VIÊN GIẤY LỚN (ĐÃ VO TRÒN)
+            </div>
+            <ul class="font-mono-tech space-y-1 text-gray-300">
+              <li>• Khối lượng: <span class="text-white font-bold">m<sub>2</sub> ≈ 3.00 g (Không đổi)</span></li>
+              <li>• Diện tích cản gió: <span class="text-emerald-400 font-bold">S<sub>2</sub> ≈ 6.8 cm²</span> (Giảm ~35 lần)</li>
+              <li>• Hình dạng mới: <span class="text-cyan-200">Hình cầu nén compact</span></li>
+              <li>• Lực cản không khí: <span class="text-emerald-400 font-semibold">F<sub>cản 2</sub> ≈ 0</span></li>
+            </ul>
+          </div>
+        `;
+      } else {
+        img.classList.remove('hidden');
+        stage.classList.add('hidden');
+        btnText.textContent = "VO TRÒN 2 MẢNH GIẤY";
+        btnIcon.className = "fa-solid fa-hand-fist text-base";
+        badge.textContent = "TRẠNG THÁI: TỜ GIẤY PHẲNG NGUYÊN BẢN";
+        badge.className = "font-mono-tech text-xs text-cyan-400 bg-cyan-950/70 border border-cyan-500/50 px-2 py-0.5 rounded";
+
+        // Trả lại bảng chỉ số khi chưa vo tròn
+        hudContent.innerHTML = `
+          <div class="bg-gray-900/90 border border-cyan-500/60 p-3 sm:p-4 rounded-xl shadow-xl backdrop-blur-md text-xs sm:text-sm">
+            <div class="text-cyan-400 font-bold font-scifi mb-1 flex items-center gap-2">
+              <i class="fa-solid fa-crosshairs text-cyan-400"></i> MẢNH GIẤY NHỎ (CHƯA VO TRÒN)
+            </div>
+            <ul class="font-mono-tech space-y-1 text-gray-300">
+              <li>• Khối lượng: <span class="text-white font-bold">m<sub>1</sub> ≈ 1.50 g</span></li>
+              <li>• Diện tích cản gió: <span class="text-amber-300 font-bold">S<sub>1</sub> ≈ 120 cm²</span></li>
+              <li>• Chất liệu: <span class="text-cyan-200">Sợi Xenlulozo nén mỏng</span></li>
+              <li>• Khí động học: <span class="text-rose-400 font-semibold">Bề mặt phẳng tạo sức cản không khí lớn</span></li>
+            </ul>
+          </div>
+
+          <div class="bg-gray-900/90 border border-cyan-500/60 p-3 sm:p-4 rounded-xl shadow-xl backdrop-blur-md text-xs sm:text-sm">
+            <div class="text-cyan-400 font-bold font-scifi mb-1 flex items-center gap-2">
+              <i class="fa-solid fa-crosshairs text-cyan-400"></i> MẢNH GIẤY LỚN (CHƯA VO TRÒN)
+            </div>
+            <ul class="font-mono-tech space-y-1 text-gray-300">
+              <li>• Khối lượng: <span class="text-white font-bold">m<sub>2</sub> ≈ 3.00 g</span> (Gấp đôi giấy nhỏ)</li>
+              <li>• Diện tích cản gió: <span class="text-rose-400 font-bold">S<sub>2</sub> ≈ 240 cm²</span> (Cực lớn)</li>
+              <li>• Chất liệu: <span class="text-cyan-200">Sợi Xenlulozo nén mỏng</span></li>
+              <li>• Khí động học: <span class="text-rose-400 font-semibold">Chịu lực đẩy khí quyển mặt dưới cực mạnh</span></li>
+            </ul>
+          </div>
+        `;
+      }
+    }
+
+    // Nút tròn 1: Mắt Thấu Thị
+    function toggleThauThi() {
+      isThauThiActive = !isThauThiActive;
+      const btn = document.getElementById('btn-thau-thi');
+      const icon = document.getElementById('icon-thau-thi');
+      const scanLaser = document.getElementById('scan-laser');
+      const viewport = document.getElementById('presentation-viewport');
+      const hud = document.getElementById(`hud-slide-${currentSlide}`);
+
+      if (isThauThiActive) {
+        btn.classList.add('bg-cyan-500', 'text-black', 'border-white', 'shadow-cyan-400');
+        btn.classList.remove('bg-cyan-950/90', 'text-cyan-300');
+        icon.classList.remove('fa-eye');
+        icon.classList.add('fa-eye-slash');
+
+        viewport.classList.add('scanner-active');
+        scanLaser.classList.remove('hidden');
+
+        if (hud) hud.classList.remove('hidden');
+      } else {
+        closeAllHUDs();
+      }
+    }
+
+    function closeAllHUDs() {
+      isThauThiActive = false;
+      const btn = document.getElementById('btn-thau-thi');
+      const icon = document.getElementById('icon-thau-thi');
+      const scanLaser = document.getElementById('scan-laser');
+      const viewport = document.getElementById('presentation-viewport');
+
+      btn.classList.remove('bg-cyan-500', 'text-black', 'border-white', 'shadow-cyan-400');
+      btn.classList.add('bg-cyan-950/90', 'text-cyan-300');
+      icon.classList.add('fa-eye');
+      icon.classList.remove('fa-eye-slash');
+
+      viewport.classList.remove('scanner-active');
+      scanLaser.classList.add('hidden');
+
+      document.querySelectorAll('.hud-overlay').forEach(h => h.classList.add('hidden'));
+    }
+
+    // Nút tròn 2: Mắt So Sánh
+    function toggleSoSanh() {
+      const modal = document.getElementById('modal-so-sanh');
+      modal.classList.toggle('hidden');
+    }
+
+    // Nút bên trái: Modal Giới thiệu 9 Thành viên Nhóm
+    function toggleMembersModal() {
+      const modal = document.getElementById('modal-members');
+      modal.classList.toggle('hidden');
+    }
+
+    // Chuyển đổi toàn màn hình
+    function toggleFullscreen() {
+      if (!document.fullscreenElement) {
+        document.documentElement.requestFullscreen().catch(() => {});
+      } else {
+        if (document.exitFullscreen) document.exitFullscreen();
+      }
+    }
+
+    // Điều khiển bằng phím
+    window.addEventListener('keydown', (e) => {
+      if (e.key === 'ArrowRight' || e.key === ' ') {
+        goToNextSlide();
+      } else if (e.key === 'ArrowLeft') {
+        if (currentSlide > 1) {
+          currentSlide--;
+          updateSlideView();
+        }
+      } else if (e.key.toLowerCase() === 's') {
+        toggleThauThi();
+      } else if (e.key.toLowerCase() === 'c') {
+        toggleSoSanh();
+      } else if (e.key.toLowerCase() === 'm') {
+        toggleMembersModal();
+      }
+    });
+  </script>
+</body>
+</html>
